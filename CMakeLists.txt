@@ -1,0 +1,66 @@
+cmake_minimum_required(VERSION 3.10)
+project(SpendingTracker C)
+
+# Print CMake version and paths for context
+message(STATUS "CMake Version: ${CMAKE_VERSION}")
+message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
+message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
+# Find SQLite3
+find_package(SQLite3)
+if(SQLite3_FOUND)
+  message(STATUS "SQLite3 found via find_package")
+  message(STATUS "SQLite3_INCLUDE_DIRS: ${SQLite3_INCLUDE_DIRS}")
+  message(STATUS "SQLite3_LIBRARIES: ${SQLite3_LIBRARIES}")
+  message(STATUS "SQLite3_VERSION: ${SQLite3_VERSION}")
+else()
+  message(WARNING "SQLite3 not found via find_package. Trying pkg-config.")
+  find_package(PkgConfig REQUIRED)
+  if(PkgConfig_FOUND)
+    message(STATUS "PkgConfig found")
+    pkg_check_modules(SQLite3 IMPORTED_TARGET sqlite3)
+    if(SQLite3_FOUND)
+      message(STATUS "SQLite3 found via pkg-config")
+      message(STATUS "SQLite3_INCLUDE_DIRS: ${SQLite3_INCLUDE_DIRS}")
+      message(STATUS "SQLite3_LIBRARIES: ${SQLite3_LIBRARIES}")
+      message(STATUS "SQLite3_VERSION: ${SQLite3_VERSION}")
+      # Create SQLite3::SQLite3 target using PkgConfig results
+      add_library(SQLite3::SQLite3 INTERFACE IMPORTED)
+      set_target_properties(SQLite3::SQLite3 PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${SQLite3_INCLUDE_DIRS}"
+        INTERFACE_LINK_LIBRARIES "${SQLite3_LIBRARIES}"
+      )
+    else()
+      message(FATAL_ERROR "SQLite3 not found via pkg-config. Please install libsqlite3-dev.")
+    endif()
+  else()
+    message(FATAL_ERROR "PkgConfig not found. Please install pkgconf.")
+  endif()
+endif()
+
+# Print final SQLite3 status
+message(STATUS "SQLite3_FOUND: ${SQLite3_FOUND}")
+message(STATUS "SQLite3_INCLUDE_DIRS: ${SQLite3_INCLUDE_DIRS}")
+message(STATUS "SQLite3_LIBRARIES: ${SQLite3_LIBRARIES}")
+message(STATUS "SQLite3_VERSION: ${SQLite3_VERSION}")
+get_cmake_property(_targets IMPORTED_TARGETS)
+message(STATUS "Imported Targets: ${_targets}")
+if(TARGET SQLite3::SQLite3)
+  message(STATUS "SQLite3::SQLite3 target exists")
+else()
+  message(FATAL_ERROR "SQLite3::SQLite3 target not found")
+endif()
+
+# Rest of your CMakeLists.txt
+include(CTest)
+add_library(SpendingTrackerLib STATIC spending_tracker.c)
+target_include_directories(SpendingTrackerLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(SpendingTrackerLib PUBLIC SQLite3::SQLite3)
+add_executable(SpendingTracker spending_tracker.c)
+target_link_libraries(SpendingTracker SpendingTrackerLib SQLite3::SQLite3)
+target_compile_definitions(SpendingTracker PRIVATE IS_EXE)
+add_library(Unity STATIC external/unity/src/unity.c)
+target_include_directories(Unity PUBLIC external/unity/src)
+add_executable(SpendingTrackerTest test/test_spending_tracker.c)
+target_link_libraries(SpendingTrackerTest SpendingTrackerLib Unity SQLite3::SQLite3)
+add_test(NAME SpendingTrackerTest COMMAND SpendingTrackerTest)
