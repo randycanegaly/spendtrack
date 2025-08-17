@@ -6,8 +6,9 @@ void setUp(void) {}
 void tearDown(void) {}
 
 void test_create_db(void) {
-  int result = create_db();
-  TEST_ASSERT_EQUAL_INT(1, result);
+  sqlite3 *db;
+  int result = create_db("test_db", db);
+  TEST_ASSERT_EQUAL_INT(SQLITE_OK, result);
 }
 
 int main(void) {
