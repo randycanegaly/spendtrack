@@ -1,66 +1,51 @@
 cmake_minimum_required(VERSION 3.10)
-project(SpendingTracker C)
+project(spendtrack)
 
 # Print CMake version and paths for context
 message(STATUS "CMake Version: ${CMAKE_VERSION}")
 message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 
-# Find SQLite3
-find_package(SQLite3)
-if(SQLite3_FOUND)
-  message(STATUS "SQLite3 found via find_package")
-  message(STATUS "SQLite3_INCLUDE_DIRS: ${SQLite3_INCLUDE_DIRS}")
-  message(STATUS "SQLite3_LIBRARIES: ${SQLite3_LIBRARIES}")
-  message(STATUS "SQLite3_VERSION: ${SQLite3_VERSION}")
-else()
-  message(WARNING "SQLite3 not found via find_package. Trying pkg-config.")
-  find_package(PkgConfig REQUIRED)
-  if(PkgConfig_FOUND)
-    message(STATUS "PkgConfig found")
-    pkg_check_modules(SQLite3 IMPORTED_TARGET sqlite3)
-    if(SQLite3_FOUND)
-      message(STATUS "SQLite3 found via pkg-config")
-      message(STATUS "SQLite3_INCLUDE_DIRS: ${SQLite3_INCLUDE_DIRS}")
-      message(STATUS "SQLite3_LIBRARIES: ${SQLite3_LIBRARIES}")
-      message(STATUS "SQLite3_VERSION: ${SQLite3_VERSION}")
-      # Create SQLite3::SQLite3 target using PkgConfig results
-      add_library(SQLite3::SQLite3 INTERFACE IMPORTED)
-      set_target_properties(SQLite3::SQLite3 PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${SQLite3_INCLUDE_DIRS}"
-        INTERFACE_LINK_LIBRARIES "${SQLite3_LIBRARIES}"
-      )
-    else()
-      message(FATAL_ERROR "SQLite3 not found via pkg-config. Please install libsqlite3-dev.")
-    endif()
-  else()
-    message(FATAL_ERROR "PkgConfig not found. Please install pkgconf.")
-  endif()
+# Manually specify SQLite3 paths
+set(SQLITE3_INCLUDE_DIR "/usr/include")
+set(SQLITE3_LIBRARY "/usr/lib/x86_64-linux-gnu/libsqlite3.so")
+
+# Verify SQLite3 files exist
+if(NOT EXISTS "${SQLITE3_INCLUDE_DIR}/sqlite3.h")
+  message(FATAL_ERROR "SQLite3 header not found at ${SQLITE3_INCLUDE_DIR}/sqlite3.h. Please install libsqlite3-dev or adjust SQLITE3_INCLUDE_DIR.")
+endif()
+if(NOT EXISTS "${SQLITE3_LIBRARY}")
+  message(FATAL_ERROR "SQLite3 library not found at ${SQLITE3_LIBRARY}. Please install libsqlite3-dev or adjust SQLITE3_LIBRARY.")
 endif()
 
-# Print final SQLite3 status
-message(STATUS "SQLite3_FOUND: ${SQLite3_FOUND}")
-message(STATUS "SQLite3_INCLUDE_DIRS: ${SQLite3_INCLUDE_DIRS}")
-message(STATUS "SQLite3_LIBRARIES: ${SQLite3_LIBRARIES}")
-message(STATUS "SQLite3_VERSION: ${SQLite3_VERSION}")
+# Create SQLite3::SQLite3 target
+add_library(SQLite3::SQLite3 INTERFACE IMPORTED)
+set_target_properties(SQLite3::SQLite3 PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "${SQLITE3_INCLUDE_DIR}"
+  INTERFACE_LINK_LIBRARIES "${SQLITE3_LIBRARY}"
+)
+
+# Print SQLite3 configuration for confirmation
+message(STATUS "SQLite3_INCLUDE_DIR: ${SQLITE3_INCLUDE_DIR}")
+message(STATUS "SQLite3_LIBRARY: ${SQLITE3_LIBRARY}")
 get_cmake_property(_targets IMPORTED_TARGETS)
 message(STATUS "Imported Targets: ${_targets}")
 if(TARGET SQLite3::SQLite3)
   message(STATUS "SQLite3::SQLite3 target exists")
 else()
-  message(FATAL_ERROR "SQLite3::SQLite3 target not found")
+  message(FATAL_ERROR "Failed to create SQLite3::SQLite3 target")
 endif()
 
 # Rest of your CMakeLists.txt
 include(CTest)
-add_library(SpendingTrackerLib STATIC spending_tracker.c)
-target_include_directories(SpendingTrackerLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(SpendingTrackerLib PUBLIC SQLite3::SQLite3)
-add_executable(SpendingTracker spending_tracker.c)
-target_link_libraries(SpendingTracker SpendingTrackerLib SQLite3::SQLite3)
-target_compile_definitions(SpendingTracker PRIVATE IS_EXE)
-add_library(Unity STATIC external/unity/src/unity.c)
+add_library(spendtracklib STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/spendtrack.c)
+target_include_directories(spendtracklib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(spendtracklib PUBLIC SQLite3::SQLite3)
+add_executable(spendtrack ${CMAKE_CURRENT_SOURCE_DIR}/src/spendtrack.c)
+target_link_libraries(spendtrack spendtracklib SQLite3::SQLite3)
+target_compile_definitions(spendtrack PRIVATE IS_EXE)
+add_library(Unity STATIC external/src/unity.c)
 target_include_directories(Unity PUBLIC external/unity/src)
-add_executable(SpendingTrackerTest test/test_spending_tracker.c)
-target_link_libraries(SpendingTrackerTest SpendingTrackerLib Unity SQLite3::SQLite3)
-add_test(NAME SpendingTrackerTest COMMAND SpendingTrackerTest)
+add_executable(spendtracktest test/test_spendtrack.c)
+target_link_libraries(spendtracktest spendtracklib Unity SQLite3::SQLite3)
+add_test(NAME spendtracktest COMMAND spendtracktest)
